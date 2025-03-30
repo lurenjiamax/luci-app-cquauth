@@ -1,0 +1,165 @@
+'use strict';
+
+import { popen } from 'fs';
+
+// Logined
+// const match_v4ip = /v4ip\s*=\s*'(\s*[0-9.]+\s*)'/;  // Logined
+// const match_v6ip = /v6ip='(\s*[0-9.]+\s*)'/;
+// const match_uid = /uid='(\s*[0-9.]+\s*)'/;
+// const match_time = /time='(\s*[0-9.]+\s*)'/;
+// const match_flow = /flow='(\s*[0-9.]+\s*)'/;
+
+const match_v4ip = /v4ip='([0-9.]+)'/;
+const match_uid = /uid='([0-9]+)'/;
+const match_time = /time='([0-9]+)'/; // minute
+const match_flow = /flow='([0-9]+)'/; // byte ?
+
+// Unlogined
+// const match_v46ip = /v46ip\s*=\s*'(\s*[0-9.]+\s*)'/; // a79.htm, Thanks @Haowang
+const match_v46ip = /v46ip\s*=\s*'([0-9.]+)'/;
+
+function safe_exec(cmd) {
+    return trim(popen(cmd)?.read?.('all') ?? '');
+}
+
+function exec(cmd) {
+    return popen(cmd)?.read?.('all') ?? '';
+}
+
+function log(msg) {
+    exec('logger -t cquauth_client ' + msg);
+}
+// Replase \, /, \s, \n to ''
+function trim_html(str) {
+    return replace(replace(replace(replace(str, /\s/g, ''), /\//g, ''), /\n/g, ''), /\\/g, '');
+}
+
+function url_encode(str) {
+    if (!str) return '';
+    return replace(
+        replace(str, /[^a-zA-Z0-9\-._~]/g, c => 
+            sprintf('%%%02X', ord(c))
+        ),
+        ' ',
+        '+'
+    );
+}
+
+function get_ip(ifname) {
+    const cmd = sprintf('curl --connect-timeout 5 10.254.7.4/a79.htm --interface %s 2>/dev/null', ifname);
+    const result = trim_html(safe_exec(cmd));
+    return match(result, match_v46ip)?.[1] ?? 'N/A';
+}
+
+const methods = {
+    ping: {
+        call: function() {
+            return { success: true };
+        }
+    },
+    // Any N/A indicate not logined
+    get_status: {
+        args: { interface: 'string' },
+        call: function(req) {
+            log('get_status method called');
+            const iface = req.args?.interface ?? 'eth0';
+            log('Using interface: ' + iface);
+            
+            const cmd = `curl --connect-timeout 5 10.254.7.4 --interface ${iface} 2>/dev/null`;
+            log('Executing command: ' + cmd);
+            
+            const result = trim_html(safe_exec(cmd));
+            log('Command output length: ' + length(result));
+
+            const status = {
+                time: match(result, match_time)?.[1] ?? 'N/A',
+                flow: match(result, match_flow)?.[1] ?? 'N/A',
+                uid: match(result, match_uid)?.[1] ?? 'N/A',
+                v4ip: match(result, match_v4ip)?.[1] ?? 'N/A'
+            };
+
+            log(`Returning status: time=${status.time}, flow=${status.flow}, uid=${status.uid}, v4ip=${status.v4ip}`);
+            return status;
+        }
+    },
+    get_ip: {
+        args: { interface: 'string' },
+        call: function(req) {
+            log('get_ip method called');
+            const iface = req.args?.interface ?? 'eth0';
+            log('Using interface: ' + iface);
+            const ip = get_ip(iface);
+            return { ip };
+        }
+    },
+    login: {
+        args: {
+            user: 'string',
+            pass: 'string',
+            interface: 'string',
+            ua: 'string',
+            terminal_type: 'string'
+        },
+        call: function(req) {
+            log('login method called');
+            const args = req.args;
+            const callback = (args.terminal_type == 'phone') ? 'dr1005' : 'dr1004';
+            const prefix = (args.terminal_type == 'phone') ? '%2C1%2C' : '%2C0%2C';
+            const term_type = (args.terminal_type == 'phone') ? '2' : '1';
+            const iface = args.interface ?? 'eth0';
+            
+            log(`Using interface: ${iface}, terminal_type: ${args.terminal_type}`);
+            
+            const ip = get_ip(iface);
+            log('Resolved IP: ' + ip);
+
+            const url = sprintf(
+                'http://10.254.7.4:801/eportal/portal/login?callback=%s&login_method=1&user_account=%s%s&user_password=%s&wlan_user_ip=%s&wlan_user_ipv6=&wlan_user_mac=000000000000&wlan_ac_ip=&wlan_ac_name=&ua=%s&term_type=%s&jsVersion=4.2&terminal_type=%s&lang=zh-cn&v=5899&lang=zh',
+                callback, prefix, url_encode(args.user), url_encode(args.pass), ip, url_encode(args.ua), term_type, term_type
+            );
+            log('Generated URL: ' + substr(url, 0, 100) + '...');
+
+            const cmd = sprintf(
+                'curl --connect-timeout 5 --header "Accept-Language: zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6" ' +
+                '--header "Connection: keep-alive" --header "Referer: http://10.254.7.4/" ' +
+                '--user-agent "%s" "%s" 2>/dev/null',
+                url_encode(args.ua), url
+            );
+            log('Executing login command: ' + substr(cmd, 0, 100) + '...');
+
+            const result = safe_exec(cmd);
+            log('Login command output length: ' + length(result));
+
+            let success, message;
+            if (!result || !length(result)) {
+                success = false;
+                message = '超时错误或curl失败';
+            }
+            else if (index(result, '认证成功') || index(result, 'ret = 1')) {
+                success = true;
+                message = '认证成功';
+            }
+            else if (index(result, '密码错误') || index(result, 'password error')) {
+                success = false;
+                message = '密码不正确';
+            }
+            else if (index(result, '账号不存在') || index(result, 'user not found')) {
+                success = false;
+                message = '账号不正确';
+            }
+            else if (index(result, '认证异常')) {
+                success = false;
+                message = '认证异常';
+            }
+            else {
+                success = false;
+                message = '其他错误: ' + substr(result, 0, 50);
+            }
+
+            log(`Login result: success=${success}, message=${message}`);
+            return { success, message };
+        }
+    }
+};
+log('Service started');
+return { 'cquauth': methods };
