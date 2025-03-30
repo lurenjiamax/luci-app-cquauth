@@ -15,19 +15,8 @@ var callGetStatus = rpc.declare({
 
 var pollAdded = false;
 
-function renderStatus(container, accounts) {
-    while (container.childNodes.length > 0) {
-        container.removeChild(container.lastChild);
-    }
-
-    if (accounts.length === 0) {
-        container.appendChild(E('div', { 'class': 'alert-message warning' }, 
-            _('没有配置任何账号')));
-        return;
-    }
-
-    // 账号状态表格
-    var table = E('table', { 'class': 'table' }, [
+function createStatusTable() {
+    return E('table', { 'class': 'table' }, [
         E('tr', { 'class': 'tr table-titles' }, [
             E('th', { 'class': 'th' }, _('接口')),
             E('th', { 'class': 'th' }, _('账号')),
@@ -36,38 +25,53 @@ function renderStatus(container, accounts) {
             E('th', { 'class': 'th' }, _('使用流量'))
         ])
     ]);
+}
+
+function updateStatus(table, accounts) {
+    var rows = table.querySelectorAll('tr:not(.table-titles)');
+    var rowMap = new Map();
+    
+    rows.forEach(row => {
+        var iface = row.cells[0].textContent;
+        rowMap.set(iface, row);
+    });
 
     accounts.forEach(function(acc) {
-        var row = E('tr', { 'class': 'tr' }, [
-            E('td', { 'class': 'td' }, acc.interface || 'N/A'),
-            E('td', { 'class': 'td' }, [
-                E('img', { 
-                    'src': '/luci-static/resources/icons/loading.gif',
-                    'style': 'width:16px;height:16px'
-                })
-            ]),
-            E('td', { 'class': 'td' }, '加载中...'),
-            E('td', { 'class': 'td' }, '加载中...'),
-            E('td', { 'class': 'td' }, '加载中...')
-        ]);
-        table.appendChild(row);
-
+        var row = rowMap.get(acc.interface);
+        if (!row) {
+            row = E('tr', { 'class': 'tr' }, [
+                E('td', { 'class': 'td' }, acc.interface || 'N/A'),
+                E('td', { 'class': 'td' }, [
+                    E('img', { 
+                        'src': '/luci-static/resources/icons/loading.gif',
+                        'style': 'width:16px;height:16px'
+                    })
+                ]),
+                E('td', { 'class': 'td' }, '加载中...'),
+                E('td', { 'class': 'td' }, '加载中...'),
+                E('td', { 'class': 'td' }, '加载中...')
+            ]);
+            table.appendChild(row);
+        }
         callGetStatus(acc.interface).then(function(result) {
-            row.childNodes[1].textContent = result?.uid || 'N/A';
-            row.childNodes[2].textContent = result?.v4ip || 'N/A';
-            row.childNodes[3].textContent = result?.time || 'N/A';
-            row.childNodes[4].textContent = result?.flow || 'N/A';
+            row.cells[1].innerHTML = '';
+            row.cells[1].textContent = result?.uid || 'N/A';
+            row.cells[2].textContent = result?.v4ip || 'N/A';
+            row.cells[3].textContent = result?.time || 'N/A';
+            row.cells[4].textContent = result?.flow || 'N/A';
         }).catch(function(e) {
-            row.childNodes[1].textContent = '错误';
-            row.childNodes[2].textContent = 'N/A';
-            row.childNodes[3].textContent = 'N/A';
-            row.childNodes[4].textContent = 'N/A';
+            row.cells[1].innerHTML = '';
+            row.cells[1].textContent = '错误';
+            row.cells[2].textContent = 'N/A';
+            row.cells[3].textContent = 'N/A';
+            row.cells[4].textContent = 'N/A';
         });
     });
 
-    container.appendChild(table);
-    container.appendChild(E('div', { 'class': 'cbi-section-description' }, 
-        _('最后更新: ') + new Date().toLocaleString()));
+    var timestamp = document.getElementById('cquauth-timestamp');
+    if (timestamp) {
+        timestamp.textContent = _('最后更新: ') + new Date().toLocaleString();
+    }
 }
 
 return view.extend({
@@ -92,9 +96,12 @@ return view.extend({
         s = m.section(form.NamedSection, '_status', 'status');
         s.title = _('状态');
         s.anonymous = true;
-        s.render = function() {
-            var container = E('div', { 'class': 'cbi-section' });
-
+        s.render = function(section_id) {
+            var container = E('div', { 
+                'class': 'cbi-section', 
+                'id': 'cquauth-status-section' 
+            });
+            
             var accounts = [];
             uci.sections('cquauth', 'account', function(s) {
                 if (s.interface) {
@@ -105,23 +112,38 @@ return view.extend({
                 }
             });
 
-            // renderStatus(container, accounts);
+            if (accounts.length === 0) {
+                container.appendChild(E('div', { 'class': 'alert-message warning' }, 
+                    _('没有配置任何账号')));
+            } else {
+                var table = createStatusTable();
+                container.appendChild(table);
+                container.appendChild(E('div', { 
+                    'id': 'cquauth-timestamp', 
+                    'class': 'cbi-section-description' 
+                }, _('最后更新: ') + new Date().toLocaleString()));
+                container.appendChild(table);
 
-            if (!pollAdded) {
-                poll.add(function() {
-                    var currentAccounts = [];
-                    uci.sections('cquauth', 'account', function(s) {
-                        if (s.interface) {
-                            currentAccounts.push({
-                                user: s.user,
-                                interface: s.interface
+                if (!pollAdded) {
+                    poll.add(function() {
+                        var currentTable = document.querySelector('#cquauth-status-section .table');
+                        if (currentTable) {
+                            var currentAccounts = [];
+                            uci.sections('cquauth', 'account', function(s) {
+                                if (s.interface) {
+                                    currentAccounts.push({
+                                        user: s.user,
+                                        interface: s.interface
+                                    });
+                                }
                             });
+                            updateStatus(currentTable, currentAccounts);
                         }
-                    });
-                    
-                    renderStatus(container, currentAccounts);
-                }, 5); 
-                pollAdded = true;
+                    }, 5);
+                    pollAdded = true;
+                }
+
+                updateStatus(table, accounts);
             }
             
             return container;
@@ -134,6 +156,14 @@ return view.extend({
 
         o = s.option(form.Flag, 'enabled', _('启用服务'));
         o.default = '1';
+        o.rmempty = false;
+
+        o = s.option(form.Value, 'ping_target', _('Ping目标'));
+        o.default = '223.5.5.5';
+        o.rmempty = false;
+
+        o = s.option(form.Value, 'check_interval', _('检查间隔'));
+        o.default = '60';
         o.rmempty = false;
 
         s = m.section(form.TableSection, 'account', _('账号配置'));
