@@ -4,10 +4,11 @@ An unofficial DRCOM auth client for CQU (Chongqing University).
 Currently only support D campus.
 
 Feature:
-    - Multiple accounts support
-    - Multiple interface support (curl)
-    - Internet connection check with auto relogin (ping)
-    - Account status check
+
+- Multiple accounts support
+- Multiple interface support (curl)
+- Internet connection check with auto relogin (ping)
+- Account status check
 
 ## Credits
 
