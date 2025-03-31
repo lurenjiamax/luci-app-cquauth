@@ -33,7 +33,7 @@ local function auth_account(config)
         return false
     end
 
-    while count < max_attempts do
+    while count < max_attempts or max_attempts == 0 do
         local result = conn:call("cquauth", "login", {
             user = config.user,
             pass = config.pass,
