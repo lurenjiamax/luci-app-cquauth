@@ -11,6 +11,10 @@ local function log(msg)
     os.execute(string.format("logger -t cquauth_client '%s'", msg:gsub("'", "'\\''")))
 end
 
+local function log_ifname(ifname, msg)
+    log(string.format("[%s] %s", ifname, msg))
+end
+
 local function check_network(ifname)
     if not ifname then
         log("无效网络接口: " .. (ifname or "nil"))
@@ -22,7 +26,7 @@ end
 
 local function auth_account(config)
     local count = 0
-    local max_attempts = ctx:get("cquauth", "basic", "max_attempts") or 3
+    local max_attempts = tonumber(ctx:get("cquauth", "basic", "max_attempts")) or 3
     local conn = ubus.connect()
     if not conn then
         log("无法连接到 ubusd")
@@ -39,17 +43,17 @@ local function auth_account(config)
         })
 
         if result and result.success then
-            log("认证成功: " .. config.user)
+            log_ifname(config.interface, string.format("认证成功: %s", config.user))
             local status = conn:call("cquauth", "get_status", { interface = config.interface })
             if status then
-                log(string.format("UID: %s, Time: %s, Flow: %s, IP: %s",
+                log_ifname(config.interface, string.format("UID: %s, Time: %s, Flow: %s, IP: %s",
                     status.uid or "N/A", status.time or "N/A", status.flow or "N/A", status.v4ip or "N/A"))
             end
             conn:close()
             return true
         else
             count = count + 1
-            log(string.format("认证失败: %s - %s (尝试 %d/%d)", config.user, result and result.message or "未知错误", count, max_attempts))
+            log_ifname(config.interface, string.format("认证失败: %s - %s (尝试 %d/%d)", config.user, result and result.message or "未知错误", count, max_attempts))
             os.execute("sleep 5")
         end
     end
@@ -72,9 +76,9 @@ while true do
                     terminal_type = s.terminal_type or "pc"
                 }
                 if not check_network(config.interface) then
-                    log("网络断开: " .. config.interface .. " - 开始认证")
+                    log_ifname(config.interface, "网络断开: 开始认证")
                     if not auth_account(config) then
-                        log("认证失败: " .. config.user)
+                        log_ifname(config.interface, "认证失败: " .. config.user)
                         ctx:set("cquauth", s['.name'], "enabled", "0")
                         ctx:commit("cquauth")
                     end

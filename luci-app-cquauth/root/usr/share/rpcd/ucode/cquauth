@@ -29,6 +29,11 @@ function exec(cmd) {
 function log(msg) {
     exec('logger -t cquauth_client ' + msg);
 }
+
+function log_ifname(ifname, msg) {
+    log(sprintf('[%s] %s', ifname, msg));
+}
+
 // Replase \, /, \s, \n to ''
 function trim_html(str) {
     return replace(replace(replace(replace(str, /\s/g, ''), /\//g, ''), /\n/g, ''), /\\/g, '');
@@ -61,16 +66,14 @@ const methods = {
     get_status: {
         args: { interface: 'string' },
         call: function(req) {
-            log('get_status method called');
             const iface = req.args?.interface ?? 'eth0';
-            log('Using interface: ' + iface);
-            
             const cmd = `curl --connect-timeout 5 10.254.7.4 --interface ${iface} 2>/dev/null`;
-            log('Executing command: ' + cmd);
             
             const result = trim_html(safe_exec(cmd));
-            log('Command output length: ' + length(result));
-
+            log_ifname(iface, `Command output length: ${length(result)}`);
+            if (length(result) == 0) {
+                log_ifname(iface, 'Please check your connection to 10.254.7.4');
+            }
             const status = {
                 time: match(result, match_time)?.[1] ?? 'N/A',
                 flow: match(result, match_flow)?.[1] ?? 'N/A',
@@ -78,16 +81,14 @@ const methods = {
                 v4ip: match(result, match_v4ip)?.[1] ?? 'N/A'
             };
 
-            log(`Returning status: time=${status.time}, flow=${status.flow}, uid=${status.uid}, v4ip=${status.v4ip}`);
+            log_ifname(iface, `Current status: time=${status.time}, flow=${status.flow}, uid=${status.uid}, v4ip=${status.v4ip}`);
             return status;
         }
     },
     get_ip: {
         args: { interface: 'string' },
         call: function(req) {
-            log('get_ip method called');
             const iface = req.args?.interface ?? 'eth0';
-            log('Using interface: ' + iface);
             const ip = get_ip(iface);
             return { ip };
         }
@@ -101,23 +102,28 @@ const methods = {
             terminal_type: 'string'
         },
         call: function(req) {
-            log('login method called');
             const args = req.args;
+            if (!args.user || !args.pass || !args.ua || !args.interface || !args.terminal_type) {
+                log('参数不完整, 请检查配置文件');
+                return { success: false, message: '参数不完整' };
+            }
             const callback = (args.terminal_type == 'phone') ? 'dr1005' : 'dr1004';
             const prefix = (args.terminal_type == 'phone') ? '%2C1%2C' : '%2C0%2C';
             const term_type = (args.terminal_type == 'phone') ? '2' : '1';
             const iface = args.interface ?? 'eth0';
             
-            log(`Using interface: ${iface}, terminal_type: ${args.terminal_type}`);
+            log_ifname(iface, `logining, account: ${args.user}, terminal_type: ${args.terminal_type}`);
             
             const ip = get_ip(iface);
-            log('Resolved IP: ' + ip);
-
+            log_ifname(iface, `Resolved IP: ${ip}`);
+            if (ip == 'N/A') {
+                log_ifname(iface, '无法获取IP地址');
+                return { success: false, message: '无法获取IP地址' };
+            }
             const url = sprintf(
                 'http://10.254.7.4:801/eportal/portal/login?callback=%s&login_method=1&user_account=%s%s&user_password=%s&wlan_user_ip=%s&wlan_user_ipv6=&wlan_user_mac=000000000000&wlan_ac_ip=&wlan_ac_name=&ua=%s&term_type=%s&jsVersion=4.2&terminal_type=%s&lang=zh-cn&v=5899&lang=zh',
                 callback, prefix, url_encode(args.user), url_encode(args.pass), ip, url_encode(args.ua), term_type, term_type
             );
-            log('Generated URL: ' + substr(url, 0, 100) + '...');
 
             const cmd = sprintf(
                 'curl --connect-timeout 5 --header "Accept-Language: zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6" ' +
@@ -125,11 +131,12 @@ const methods = {
                 '--user-agent "%s" "%s" 2>/dev/null',
                 url_encode(args.ua), url
             );
-            log('Executing login command: ' + substr(cmd, 0, 100) + '...');
 
             const result = safe_exec(cmd);
-            log('Login command output length: ' + length(result));
-
+            log_ifname(iface, `Login command output length: ${length(result)}`);
+            if (length(result) == 0) {
+                log_ifname(iface, 'Please check your connection to 10.254.7.4');
+            }
             let success, message;
             if (!result || !length(result)) {
                 success = false;
@@ -156,7 +163,7 @@ const methods = {
                 message = '其他错误: ' + substr(result, 0, 50);
             }
 
-            log(`Login result: success=${success}, message=${message}`);
+            log_ifname(iface, `Login result: success=${success}, message=${message}`);
             return { success, message };
         }
     }
