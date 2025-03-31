@@ -5,7 +5,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-cquauth
-PKG_VERSION:=1.0.0
+PKG_VERSION:=1.0.1
 PKG_RELEASE:=1
 
 PKG_MAINTAINER:=lurenjiamax <lurenjiamax@gmail.com>
@@ -22,6 +22,11 @@ define Package/$(PKG_NAME)/postinst
 chmod +x /etc/init.d/cquauth_client
 chmod +x /usr/bin/cquauth_client
 chmod +x /usr/share/rpcd/ucode/cquauth
+endef
+
+# Reserve configs
+define Package/zm_control/conffiles
+/etc/config/cquauth
 endef
 
 # call BuildPackage - OpenWrt buildroot signature
