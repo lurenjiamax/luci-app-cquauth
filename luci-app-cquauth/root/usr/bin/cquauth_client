@@ -26,7 +26,7 @@ end
 
 local function auth_account(config)
     local count = 0
-    local max_attempts = tonumber(ctx:get("cquauth", "basic", "max_attempts")) or 3
+    local max_attempts = tonumber(ctx:get("cquauth", "basic", "max_attempts")) or 0
     local conn = ubus.connect()
     if not conn then
         log("无法连接到 ubusd")
@@ -63,7 +63,7 @@ end
 
 while true do
     local success, err = pcall(function()
-        if not ctx:get("cquauth", "basic", "enabled") then
+        if ctx:get("cquauth", "basic", "enabled") == '0' then
             return
         end
         ctx:foreach("cquauth", "account", function(s)

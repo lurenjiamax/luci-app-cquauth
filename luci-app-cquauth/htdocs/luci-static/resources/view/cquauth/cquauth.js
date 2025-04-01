@@ -75,6 +75,32 @@ function updateStatus(table, accounts) {
 }
 
 return view.extend({
+    handleSave: function(ev) {
+        var enabled = this.formdata.get('cquauth', 'basic', 'enabled');
+        
+        return this.handleSaveApply(ev).then(() => {
+            if (enabled === '1') {
+                return Promise.all([
+                    fs.exec('/etc/init.d/cquauth_client', ['enable']),
+                    fs.exec('/etc/init.d/cquauth_client', ['restart'])
+                ]).then(() => {
+                    ui.addNotification(null, E('p', _('服务已启用并重启')));
+                }).catch((err) => {
+                    ui.addNotification(null, E('p', _('启动服务失败: %s').format(err)));
+                });
+            } else {
+                return Promise.all([
+                    fs.exec('/etc/init.d/cquauth_client', ['stop']),
+                    fs.exec('/etc/init.d/cquauth_client', ['disable'])
+                ]).then(() => {
+                    ui.addNotification(null, E('p', _('服务已停止并禁用')));
+                }).catch((err) => {
+                    ui.addNotification(null, E('p', _('停止服务失败: %s').format(err)));
+                });
+            }
+        });
+    },
+
     load: function() {
         return Promise.all([
             uci.load('cquauth'),
@@ -118,11 +144,6 @@ return view.extend({
             } else {
                 var table = createStatusTable();
                 container.appendChild(table);
-                container.appendChild(E('div', { 
-                    'id': 'cquauth-timestamp', 
-                    'class': 'cbi-section-description' 
-                }, _('最后更新: ') + new Date().toLocaleString()));
-                container.appendChild(table);
 
                 if (!pollAdded) {
                     poll.add(function() {
@@ -165,6 +186,11 @@ return view.extend({
         o = s.option(form.Value, 'check_interval', _('检查间隔'));
         o.default = '60';
         o.rmempty = false;
+
+        o = s.option(form.Value, 'max_attempts', _('最大尝试次数'));
+        o.default = '0';
+        o.rmempty = false;
+        o.description = _('0表示无限重试');
 
         s = m.section(form.TableSection, 'account', _('账号配置'));
         s.title = _('账号配置');

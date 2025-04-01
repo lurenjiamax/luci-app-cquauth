@@ -1,11 +1,17 @@
 #!/bin/sh
+# Check config file content is empty or not using cat
+if [ -s /etc/config/cquauth ]; then
+    echo "Config file is not empty, skip"
+    exit 0
+fi
+
 touch /etc/config/cquauth
 uci -q batch <<EOF
 set cquauth.basic='basic'
 set cquauth.basic.enabled='1'
 set cquauth.basic.ping_target='223.5.5.5'
 set cquauth.basic.check_interval='60'
-set cquauth.basic.max_attempts='3'
+set cquauth.basic.max_attempts='0'
 
 add cquauth account
 set cquauth.@account[-1].enabled='0'

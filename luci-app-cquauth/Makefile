@@ -6,7 +6,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-cquauth
 PKG_VERSION:=1.0.1
-PKG_RELEASE:=1
+PKG_RELEASE:=3
 
 PKG_MAINTAINER:=lurenjiamax <lurenjiamax@gmail.com>
 
@@ -16,17 +16,31 @@ LUCI_DEPENDS:=+curl
 
 include $(TOPDIR)/feeds/luci/luci.mk
 
-# POSTINSTALL
 define Package/$(PKG_NAME)/postinst
 #!/bin/sh
 chmod +x /etc/init.d/cquauth_client
 chmod +x /usr/bin/cquauth_client
 chmod +x /usr/share/rpcd/ucode/cquauth
+if [ -z "$${IPKG_INSTROOT}" ]; then
+        #Restore config file
+        mv /tmp/$(PKG_NAME).bak /etc/config/$(PKG_NAME)
+fi
+exit 0
 endef
 
 # Reserve configs
-define Package/zm_control/conffiles
+define Package/$(PKG_NAME)/conffiles
 /etc/config/cquauth
+endef
+
+define Package/$(PKG_NAME)/preinst
+#!/bin/sh
+# check if we are on real system
+if [ -z "$${IPKG_INSTROOT}" ]; then
+        #Backup config file
+        cp /etc/config/$(PKG_NAME) /tmp/$(PKG_NAME).bak
+fi
+exit 0
 endef
 
 # call BuildPackage - OpenWrt buildroot signature

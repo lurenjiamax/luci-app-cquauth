@@ -159,42 +159,48 @@ const methods = {
             if (length(result) == 0) {
                 log_ifname(iface, 'Check your connection to 10.254.7.4');
             }
-            let success, message;
+            let success = false, message, ret;
             if (!result || !length(result)) {
-                success = false;
                 message = '超时错误或curl失败';
+                ret = 1;
             }
             else if (index(result, '认证成功') != -1) {
                 success = true;
                 message = '认证成功';
+                ret = 0;
             }
             else if (index(result, '密码错误') != -1) {
-                success = false;
                 message = '密码错误';
+                ret = 2;
             }
             else if (index(result, '账号不存在') != -1) {
-                success = false;
                 message = '账号不存在';
+                ret = 3;
             }
             else if (index(result, '认证异常') != -1) {
-                success = false;
                 message = '认证异常';
+                ret = 4;
             }
             else if (index(result, '认证操作非本机终端') != -1) {
-                success = false;
                 message = '认证操作非本机终端';
+                log_ifname(iface, '请检查出口IP和接口是否正确');
+                ret = 5;
             }
             else if (index(result, '本账号费用超支') != -1) {
-                success = false;
                 message = '本账号费用超支';
+                ret = 6;
+            }
+            else if (index(result, '共享上网') != -1){
+                message = '触发共享检测';
+                ret = 7;
             }
             else {
-                success = false;
                 message = '其他错误: ' + substr(result, 0, 10);
+                ret = 20;
             }
             log_ifname(iface, `Login result: success=${success}, message=${message}, result=${substr(result, 0, 10)}...`);
             log_ifname(iface, `Result: ${message}`);
-            return { success, message, result };
+            return { success, message, ret, result };
         }
     }
 };
