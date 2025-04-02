@@ -6,7 +6,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-cquauth
 PKG_VERSION:=1.0.1
-PKG_RELEASE:=3
+PKG_RELEASE:=7
 
 PKG_MAINTAINER:=lurenjiamax <lurenjiamax@gmail.com>
 
@@ -23,7 +23,7 @@ chmod +x /usr/bin/cquauth_client
 chmod +x /usr/share/rpcd/ucode/cquauth
 if [ -z "$${IPKG_INSTROOT}" ]; then
         #Restore config file
-        mv /tmp/$(PKG_NAME).bak /etc/config/$(PKG_NAME)
+        mv /tmp/cquauth.bak /etc/config/cquauth
 fi
 exit 0
 endef
@@ -38,7 +38,7 @@ define Package/$(PKG_NAME)/preinst
 # check if we are on real system
 if [ -z "$${IPKG_INSTROOT}" ]; then
         #Backup config file
-        cp /etc/config/$(PKG_NAME) /tmp/$(PKG_NAME).bak
+        cp /etc/config/cquauth /tmp/cquauth.bak
 fi
 exit 0
 endef

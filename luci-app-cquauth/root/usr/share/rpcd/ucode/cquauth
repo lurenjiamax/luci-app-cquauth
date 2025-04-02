@@ -81,6 +81,13 @@ const methods = {
             return { success: true };
         }
     },
+    service: {
+        args: { action: 'string' },
+        call: function(req) {
+            const action = req.args?.action ?? 'restart';
+            return exec(`/etc/init.d/cquauth_client ${action}`);
+        }   
+    },
     // Any N/A indicate not logined
     // TODO: use http://10.254.7.4/drcom/chkstatus?callback=dr1002&jsVersion=4.X&v=2166&lang=zh instead
     get_status: {
@@ -192,10 +199,11 @@ const methods = {
             }
             else if (index(result, '共享上网') != -1){
                 message = '触发共享检测';
+                log_ifname(iface, '触发共享检测, 建议禁用明文流量');
                 ret = 7;
             }
             else {
-                message = '其他错误: ' + substr(result, 0, 10);
+                message = '其他错误: ' + substr(result, 5, 20);
                 ret = 20;
             }
             log_ifname(iface, `Login result: success=${success}, message=${message}, result=${substr(result, 0, 10)}...`);

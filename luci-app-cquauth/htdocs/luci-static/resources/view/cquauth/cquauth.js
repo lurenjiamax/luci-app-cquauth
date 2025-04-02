@@ -13,6 +13,12 @@ var callGetStatus = rpc.declare({
     params: ['interface'],
 });
 
+var restartService = rpc.declare({
+    object: 'cquauth',
+    method: 'service',
+    params: ['action']
+});
+
 var pollAdded = false;
 
 function createStatusTable() {
@@ -71,35 +77,13 @@ function updateStatus(table, accounts) {
     var timestamp = document.getElementById('cquauth-timestamp');
     if (timestamp) {
         timestamp.textContent = _('最后更新: ') + new Date().toLocaleString();
+    } else {
+        table.parentNode.appendChild(E('div', { 'id': 'cquauth-timestamp' }, 
+            _('最后更新: ') + new Date().toLocaleString()));
     }
 }
 
 return view.extend({
-    handleSave: function(ev) {
-        var enabled = this.formdata.get('cquauth', 'basic', 'enabled');
-        
-        return this.handleSaveApply(ev).then(() => {
-            if (enabled === '1') {
-                return Promise.all([
-                    fs.exec('/etc/init.d/cquauth_client', ['enable']),
-                    fs.exec('/etc/init.d/cquauth_client', ['restart'])
-                ]).then(() => {
-                    ui.addNotification(null, E('p', _('服务已启用并重启')));
-                }).catch((err) => {
-                    ui.addNotification(null, E('p', _('启动服务失败: %s').format(err)));
-                });
-            } else {
-                return Promise.all([
-                    fs.exec('/etc/init.d/cquauth_client', ['stop']),
-                    fs.exec('/etc/init.d/cquauth_client', ['disable'])
-                ]).then(() => {
-                    ui.addNotification(null, E('p', _('服务已停止并禁用')));
-                }).catch((err) => {
-                    ui.addNotification(null, E('p', _('停止服务失败: %s').format(err)));
-                });
-            }
-        });
-    },
 
     load: function() {
         return Promise.all([
@@ -115,7 +99,7 @@ return view.extend({
         }).filter(function(iface) {
             return iface.match(/^eth/) || iface.match(/^wlan/);
         });
-
+    
         m = new form.Map('cquauth', _('CQU Auth Client'), _('非官方重庆大学网络认证客户端'));
 
         // ================= 状态显示部分 =================
@@ -178,6 +162,7 @@ return view.extend({
         o = s.option(form.Flag, 'enabled', _('启用服务'));
         o.default = '1';
         o.rmempty = false;
+        o.description = _('修改配置后请手动重启服务');
 
         o = s.option(form.Value, 'ping_target', _('Ping目标'));
         o.default = '223.5.5.5';
@@ -211,7 +196,6 @@ return view.extend({
         o = s.option(widgets.DeviceSelect, 'interface', _('网络接口'));
         o.noaliases = true;
         o.nobridges = true;
-        o.default = interfaces.length > 0 ? interfaces[0] : 'eth0';
         o.rmempty = false;
 
         o = s.option(form.Value, 'ua', _('User Agent'));
