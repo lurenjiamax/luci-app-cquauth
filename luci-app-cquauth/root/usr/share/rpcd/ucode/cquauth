@@ -70,7 +70,7 @@ function url_encode(str) {
 }
 
 function get_ip(ifname) {
-    const cmd = sprintf('curl --connect-timeout 5 10.254.7.4/a79.htm --interface %s 2>/dev/null', ifname);
+    const cmd = sprintf('curl --user-agent "" --connect-timeout 5 10.254.7.4/a79.htm --interface %s 2>/dev/null', ifname);
     const result = trim_html(safe_exec(cmd));
     return match(result, match_v46ip)?.[1] ?? 'N/A';
 }
@@ -94,7 +94,7 @@ const methods = {
         args: { interface: 'string' },
         call: function(req) {
             const iface = req.args?.interface ?? 'eth0';
-            const cmd = `curl --connect-timeout 5 10.254.7.4 --interface ${iface} 2>/dev/null`;
+            const cmd = `curl --user-agent "" --connect-timeout 5 10.254.7.4 --interface ${iface} 2>/dev/null`;
             
             const result = trim_html(safe_exec(cmd));
             log_ifname(iface, `Command output length: ${length(result)}`);
