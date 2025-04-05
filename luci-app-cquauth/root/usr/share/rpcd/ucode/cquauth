@@ -199,7 +199,7 @@ const methods = {
             }
             else if (index(result, '共享上网') != -1){
                 message = '触发共享检测';
-                log_ifname(iface, '触发共享检测, 建议禁用明文流量');
+                log_ifname(iface, '触发共享检测, 建议禁用http明文流量');
                 ret = 7;
             }
             else {

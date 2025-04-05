@@ -54,7 +54,7 @@ local function auth_account(config)
         else
             count = count + 1
             log_ifname(config.interface, string.format("认证失败: %s - %s (尝试 %d/%d)", config.user, result and result.message or "未知错误", count, max_attempts))
-            log_ifname(config.interface, result.result)
+            log_ifname(config.interface, result.result or "N/A")
             os.execute("sleep 5")
         end
     end
@@ -87,6 +87,7 @@ while true do
             end
         end)
     end)
+    log("Sleeping..")
     if not success then
         log("程序错误: " .. err)
     end
