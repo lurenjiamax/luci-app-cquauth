@@ -68,7 +68,27 @@ Test init.d service:
 USE_PROCD=1
 START=95
 
+setup_tproxy() {
+    if ! grep -q "^100.*tproxy$" /etc/iproute2/rt_tables; then
+        echo "100 tproxy" >> /etc/iproute2/rt_tables
+    fi
+
+    if ! ip rule show | grep -q "fwmark 1 lookup tproxy"; then
+        ip rule add fwmark 1 lookup tproxy
+    fi
+
+    if ! ip route show table tproxy | grep -q "local 0.0.0.0/0"; then
+        ip route add local 0.0.0.0/0 dev lo table tproxy
+    fi
+}
+
+cleanup_tproxy() {
+    ip route del local 0.0.0.0/0 dev lo table tproxy 2>/dev/null
+    ip rule del fwmark 1 lookup tproxy 2>/dev/null
+}
+
 start_service() {
+    setup_tproxy
     procd_open_instance
     procd_set_param command /usr/bin/hev-socks5-tproxy /etc/hevproxy.yml
     procd_set_param respawn
@@ -78,6 +98,7 @@ start_service() {
 }
 
 stop_service() {
+    cleanup_tproxy
     killall hev-socks5-tproxy
 }         
 ```

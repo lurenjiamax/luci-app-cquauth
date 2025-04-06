@@ -15,8 +15,8 @@ Currently only support D campus.
 - UA_Detect: If you use different UA in http traffics, you may be detected as sharing. Please considering using the same UA in all http traffics or disable http traffics.
 
 You will have three ways to pass UA_Detect:
-- Modify UA: Check https://blog.sunbk201.site/posts/ua3f/
-- Proxy: Use tproxy to redirect all http traffics to a proxy server, see [./http_tproxy.md]
+- Modify UA: Check https://blog.sunbk201.site/posts/ua3f/ to start a local UA server.
+- Proxy: Use tproxy to redirect all http traffics to a proxy server, see [./http_tproxy.md](http_tproxy.md)
 - Forbidden: Just block all frequent http port since http traffics are unsecure.
 
 ## Credits
