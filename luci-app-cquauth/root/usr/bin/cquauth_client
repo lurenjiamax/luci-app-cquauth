@@ -15,6 +15,15 @@ local function log_ifname(ifname, msg)
     log(string.format("[%s] %s", ifname, msg))
 end
 
+local function check_authserver(ifname)
+    if not ifname then
+        log("无效网络接口: " .. (ifname or "nil"))
+        return false
+    end
+    local cmd = string.format("ping -c 4 -W 2 -I %s 10.254.7.4 >/dev/null 2>&1", ifname)
+    return os.execute(cmd) == 0
+end
+
 local function check_network(ifname)
     if not ifname then
         log("无效网络接口: " .. (ifname or "nil"))
@@ -78,6 +87,10 @@ while true do
                 }
                 if not check_network(config.interface) then
                     log_ifname(config.interface, "网络断开: 开始认证")
+                    if not check_authserver(config.interface) then
+                        log_ifname(config.interface, "无法连接到认证服务器, 尝试重新连接端口: " .. config.interface)
+                        os.execute("ifup " .. config.interface)
+                    end
                     if not auth_account(config) then
                         log_ifname(config.interface, "认证失败: " .. config.user)
                         ctx:set("cquauth", s['.name'], "enabled", "0")

@@ -160,13 +160,16 @@ const methods = {
                 '--user-agent "%s" "%s" --interface %s 2>/dev/null',
                 args.ua, url, iface
             );
-
+            let success = false, message, ret;
             const result = trim_html(safe_exec(cmd));
             log_ifname(iface, `Login command output length: ${length(result)}`);
             if (length(result) == 0) {
                 log_ifname(iface, 'Check your connection to 10.254.7.4');
+                ret = 21;
+                message = '无法连接到认证服务器';
+                return { success, message, ret, result };
             }
-            let success = false, message, ret;
+
             if (!result || !length(result)) {
                 message = '超时错误或curl失败';
                 ret = 1;
