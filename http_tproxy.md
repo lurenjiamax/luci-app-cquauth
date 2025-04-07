@@ -6,14 +6,15 @@
 
 table inet tproxy_table {
     chain prerouting {
-        type filter hook prerouting priority mangle; policy accept;
-
+        type filter hook prerouting priority -100; policy accept;
         ip iifname "br-lan" tcp dport { 80, 8080, 7777, 6969, 2710, 1096 } \
             tproxy ip to 127.0.0.1:1088 mark set 1
     }
 }
 
 ```
+Put this file in /etc/nftables.d/100-tproxy.nft
+
 Set 127.0.0.1:1088 to your local tcp tproxy server.
 
 #### IP
@@ -69,6 +70,10 @@ USE_PROCD=1
 START=95
 
 setup_tproxy() {
+
+    nft delete table inet tproxy_table
+    nft -f /etc/nftables.d/100-tproxy.nft
+
     if ! grep -q "^100.*tproxy$" /etc/iproute2/rt_tables; then
         echo "100 tproxy" >> /etc/iproute2/rt_tables
     fi
@@ -83,6 +88,7 @@ setup_tproxy() {
 }
 
 cleanup_tproxy() {
+    nft delete table inet tproxy_table 2>/dev/null
     ip route del local 0.0.0.0/0 dev lo table tproxy 2>/dev/null
     ip rule del fwmark 1 lookup tproxy 2>/dev/null
 }
