@@ -109,7 +109,6 @@ while true do
                     end
                 elseif ENABLE_ECMP == 1 then
                     table.insert(ecmp_ifaces, config.interface)
-                    table.remove(wan_ifaces, config.interface)
                 end
             end
         end)
