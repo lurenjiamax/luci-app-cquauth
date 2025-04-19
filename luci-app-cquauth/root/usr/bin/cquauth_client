@@ -36,12 +36,12 @@ local function check_authserver(ifname)
     return os.execute(cmd) == 0
 end
 
-local function check_network(ifname)
+local function check_network(ifname, timeout)
     if not ifname then
         log("无效网络接口: " .. (ifname or "nil"))
         return false
     end
-    local cmd = string.format("ping -c 4 -W 2 -I %s %s >/dev/null 2>&1", ifname, PING_TARGET)
+    local cmd = string.format("ping -c 4 -W %d -I %s %s >/dev/null 2>&1", timeout, ifname, PING_TARGET)
     return os.execute(cmd) == 0
 end
 
@@ -71,13 +71,13 @@ end
 
 local function ecmp_with_failover(conn, ecmp_ifaces, wan_ifaces)
     -- Check any rest interfaces in wan Zone available for failover
-    if #ecmp_ifaces == 0 then 
+    if #ecmp_ifaces == 0 then
         if #wan_ifaces == 0 then
             log("没有可用的接口")
             return
         end
         for _, iface in ipairs(wan_ifaces) do
-            if check_network(iface) then
+            if check_network(iface, 1) then
                 table.insert(ecmp_ifaces, iface)
                 break
             end
@@ -90,7 +90,6 @@ local function ecmp_with_failover(conn, ecmp_ifaces, wan_ifaces)
     else
         log("ECMP 启用失败: " .. (result and result.message or "未知错误"))
     end
-
 end
 
 while true do
@@ -118,13 +117,12 @@ while true do
                 if not auth_retry_state[config.interface] then
                     auth_retry_state[config.interface] = 0
                 end
-                if not check_network(config.interface) then
+                if not check_network(config.interface, 2) then
                     log_ifname(config.interface, "网络断开: 开始认证")
                     if not check_authserver(config.interface) then
                         log_ifname(config.interface, "无法连接认证服务器, 尝试 ifup")
                         os.execute("ifup " .. config.interface)
                     end
-        
                     local success = auth_account(conn, config)
                     if success then
                         auth_retry_state[config.interface] = 0
@@ -142,7 +140,7 @@ while true do
                 end
             end
         end)
-        if ENABLE_ECMP == 1 and #ecmp_ifaces > 0 then
+        if ENABLE_ECMP == 1 then
             ecmp_with_failover(conn, ecmp_ifaces, wan_ifaces)
         end
         conn:close()
