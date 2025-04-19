@@ -177,6 +177,11 @@ return view.extend({
         o.rmempty = false;
         o.description = _('0表示无限重试');
 
+        o = s.option(form.Flag, 'enable_ecmp', _('启用 ECMP'));
+        o.default = '0';
+        o.rmempty = false;
+        o.description = _('对这里的全部接口启用Ecmp, 自动故障转移')
+
         s = m.section(form.TableSection, 'account', _('账号配置'));
         s.title = _('账号配置');
         s.anonymous = true;

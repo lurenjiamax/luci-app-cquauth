@@ -12,6 +12,7 @@ set cquauth.basic.enabled='1'
 set cquauth.basic.ping_target='223.5.5.5'
 set cquauth.basic.check_interval='60'
 set cquauth.basic.max_attempts='0'
+set cquauth.basic.enable_ecmp='0'
 
 add cquauth account
 set cquauth.@account[-1].enabled='0'
@@ -23,5 +24,4 @@ set cquauth.@account[-1].terminal_type='pc'
 
 commit cquauth
 EOF
-
 exit 0

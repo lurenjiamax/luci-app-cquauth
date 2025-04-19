@@ -8,7 +8,12 @@ boot() {
     service_start /usr/sbin/rpcd -f
 }
 
+setup_sysctl() {
+    sysctl -p /etc/sysctl.d/20-ecmp.conf >/dev/null 2>&1
+}
+
 start_service() {
+    setup_sysctl
     procd_open_instance
     procd_set_param command /usr/bin/cquauth_client
     procd_set_param respawn 3600 5 10

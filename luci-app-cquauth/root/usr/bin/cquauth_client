@@ -4,8 +4,12 @@ local uci = require "uci"
 local ctx = uci.cursor()
 local ubus = require "ubus"
 
+local ENABLED = tonumber(ctx:get("cquauth", "basic", "enabled")) == 1 or 0
 local PING_TARGET = ctx:get("cquauth", "basic", "ping_target") or "223.5.5.5"
-local CHECK_INTERVAL = ctx:get("cquauth", "basic", "check_interval") or 60
+local CHECK_INTERVAL = tonumber(ctx:get("cquauth", "basic", "check_interval")) or 60
+local MAX_ATTEMPTS = tonumber(ctx:get("cquauth", "basic", "max_attempts")) or 0
+local LOGIN_SERVER = "10.254.7.4"
+local ENABLE_ECMP = tonumber(ctx:get("cquauth", "basic", "enable_ecmp")) == 1 or 0
 
 local function log(msg)
     os.execute(string.format("logger -t cquauth_client '%s'", msg:gsub("'", "'\\''")))
@@ -20,7 +24,7 @@ local function check_authserver(ifname)
         log("无效网络接口: " .. (ifname or "nil"))
         return false
     end
-    local cmd = string.format("ping -c 4 -W 2 -I %s 10.254.7.4 >/dev/null 2>&1", ifname)
+    local cmd = string.format("ping -c 4 -W 2 -I %s %s >/dev/null 2>&1", ifname, LOGIN_SERVER)
     return os.execute(cmd) == 0
 end
 
@@ -35,14 +39,13 @@ end
 
 local function auth_account(config)
     local count = 0
-    local max_attempts = tonumber(ctx:get("cquauth", "basic", "max_attempts")) or 0
     local conn = ubus.connect()
     if not conn then
         log("无法连接到 ubusd")
         return false
     end
 
-    while count < max_attempts or max_attempts == 0 do
+    while count < MAX_ATTEMPTS or MAX_ATTEMPTS == 0 do
         local result = conn:call("cquauth", "login", {
             user = config.user,
             pass = config.pass,
@@ -62,7 +65,7 @@ local function auth_account(config)
             return true
         else
             count = count + 1
-            log_ifname(config.interface, string.format("认证失败: %s - %s (尝试 %d/%d)", config.user, result and result.message or "未知错误", count, max_attempts))
+            log_ifname(config.interface, string.format("认证失败: %s - %s (尝试 %d/%d)", config.user, result and result.message or "未知错误", count, MAX_ATTEMPTS))
             log_ifname(config.interface, result.result or "N/A")
             os.execute("sleep 5")
         end
@@ -73,9 +76,11 @@ end
 
 while true do
     local success, err = pcall(function()
-        if ctx:get("cquauth", "basic", "enabled") == '0' then
+        if ENABLED == 0 then
             return
         end
+        -- TODO: Add weights options, maybe
+        local ecmp_ifaces = {}
         ctx:foreach("cquauth", "account", function(s)
             if s.enabled == "1" then
                 local config = {
@@ -96,9 +101,25 @@ while true do
                         ctx:set("cquauth", s['.name'], "enabled", "0")
                         ctx:commit("cquauth")
                     end
+                elseif ENABLE_ECMP == 1 then
+                    table.insert(ecmp_ifaces, config.interface)
                 end
             end
         end)
+        if ENABLE_ECMP == 1 and #ecmp_ifaces > 0 then
+            local conn = ubus.connect()
+            if not conn then
+                log("无法连接到 ubusd")
+                return
+            end
+            local result = conn:call("cquauth", "enable_ecmp", { interfaces = ecmp_ifaces })
+            if result and result.success then
+                log("ECMP 已启用")
+            else
+                log("ECMP 启用失败: " .. (result and result.message or "未知错误"))
+            end
+            conn:close()
+        end
     end)
     log("Sleeping..")
     if not success then

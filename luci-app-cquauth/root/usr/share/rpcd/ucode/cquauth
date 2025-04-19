@@ -120,6 +120,23 @@ const methods = {
             return { ip };
         }
     },
+    enable_ecmp: {
+        args: { interfaces: [] },
+        call: function(req) {
+            const ifaces = req.args?.interfaces ?? [];
+            if (length(ifaces) == 0) {
+                log('Invalid interface name');
+                return { success: false, message: 'Invalid interface name' };
+            }
+            const nexthop_str = "nexthop dev %s weight 1";
+            const nexthop_strs = join(' ',map(ifaces, ifname => sprintf(nexthop_str, ifname)));
+            log(`${nexthop_strs}`);
+            const cmd = sprintf('ip route replace default scope global %s', nexthop_strs);
+            const result = exec(cmd);
+            log(`Enable ecmp: ${result} ${cmd}`);
+            return { success: result == '', message: 'Enable ecmp' };
+        }
+    },
     login: {
         args: {
             user: 'string',
@@ -140,8 +157,6 @@ const methods = {
             const iface = args.interface ?? 'eth0';
             
             log_ifname(iface, `logining, account: ${args.user}, terminal_type: ${args.terminal_type}`);
-            log_ifname(iface, `callback: ${callback}, prefix: ${prefix}, term_type: ${term_type}`);
-            log_ifname(iface, `ua: ${args.ua??'N/A'}`);
             const ip = get_ip(iface);
             log_ifname(iface, `Resolved IP: ${ip??'N/A'}`);
             if (ip == 'N/A') {
