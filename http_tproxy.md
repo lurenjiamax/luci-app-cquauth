@@ -13,7 +13,7 @@ table inet tproxy_table {
 }
 
 ```
-Put this file in /etc/nftables.d/100-tproxy.nft
+Put this file in /etc/nfts/100-tproxy.nft
 
 Set 127.0.0.1:1088 to your local tcp tproxy server.
 
@@ -42,7 +42,7 @@ Use following conf, put in /etc/hevproxy.yml:
 main:
   workers: 1
 
-# Set your remote socks5 proxy server
+# Set your remote socks5 proxy server like ua3f
 socks5:
   port: 1080
   address: 127.0.0.1
@@ -72,7 +72,7 @@ START=95
 setup_tproxy() {
 
     nft delete table inet tproxy_table
-    nft -f /etc/nftables.d/100-tproxy.nft
+    nft -f /etc/nfts/100-tproxy.nft
 
     if ! grep -q "^100.*tproxy$" /etc/iproute2/rt_tables; then
         echo "100 tproxy" >> /etc/iproute2/rt_tables
