@@ -130,7 +130,6 @@ const methods = {
             }
             const nexthop_str = "nexthop dev %s weight 1";
             const nexthop_strs = join(' ',map(ifaces, ifname => sprintf(nexthop_str, ifname)));
-            log(`${nexthop_strs}`);
             const cmd = sprintf('ip route replace default scope global %s', nexthop_strs);
             const result = exec(cmd);
             log(`Enable ecmp: ${result} ${cmd}`);

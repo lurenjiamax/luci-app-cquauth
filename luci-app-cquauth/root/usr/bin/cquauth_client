@@ -18,6 +18,11 @@ end
 local function log_ifname(ifname, msg)
     log(string.format("[%s] %s", ifname, msg))
 end
+-- TODO: skip ipv6 interfaces
+local function get_wan_zone_ifaces()
+    local result = ctx:get("firewall", "zone_wan", "network")
+    return result or {}
+end
 
 local function check_authserver(ifname)
     if not ifname then
@@ -81,6 +86,7 @@ while true do
         end
         -- TODO: Add weights options, maybe
         local ecmp_ifaces = {}
+        local wan_ifaces = get_wan_zone_ifaces()
         ctx:foreach("cquauth", "account", function(s)
             if s.enabled == "1" then
                 local config = {
@@ -103,10 +109,25 @@ while true do
                     end
                 elseif ENABLE_ECMP == 1 then
                     table.insert(ecmp_ifaces, config.interface)
+                    table.remove(wan_ifaces, config.interface)
                 end
             end
         end)
         if ENABLE_ECMP == 1 and #ecmp_ifaces > 0 then
+            -- Check any rest interfaces in wan Zone available for failover
+            if #ecmp_ifaces == 0 then 
+                if #wan_ifaces == 0 then
+                    log("没有可用的接口")
+                    return
+                end
+                for _, iface in ipairs(wan_ifaces) do
+                    if check_network(iface) then
+                        table.insert(ecmp_ifaces, iface)
+                        break
+                    end
+                end
+            end
+            -- Enable ecmp, works for single or multiple interfaces
             local conn = ubus.connect()
             if not conn then
                 log("无法连接到 ubusd")
