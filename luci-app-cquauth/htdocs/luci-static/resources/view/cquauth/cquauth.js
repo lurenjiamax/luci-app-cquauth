@@ -182,6 +182,11 @@ return view.extend({
         o.rmempty = false;
         o.description = _('启用后, 所有启用账号的接口都会启用ECMP, 并使用WAN ZONE接口自动故障转移');
 
+        o = s.option(form.Value, 'ecmp_table', _('ECMP路由表'));
+        o.default = 'main';
+        o.rmempty = false;
+        o.description = _('默认为main, 可自定义搭配ip rule使用');
+
         s = m.section(form.TableSection, 'account', _('账号配置'));
         s.title = _('账号配置');
         s.anonymous = true;

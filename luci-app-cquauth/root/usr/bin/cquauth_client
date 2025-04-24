@@ -10,6 +10,7 @@ local CHECK_INTERVAL = tonumber(ctx:get("cquauth", "basic", "check_interval")) o
 local MAX_ATTEMPTS = tonumber(ctx:get("cquauth", "basic", "max_attempts")) or 0
 local LOGIN_SERVER = "10.254.7.4"
 local ENABLE_ECMP = tonumber(ctx:get("cquauth", "basic", "enable_ecmp")) == 1 or 0
+local ECMP_TABLE = tostring(ctx:get("cquauth", "basic", "ecmp_table")) or "main"
 
 local auth_retry_state = {}
 
@@ -84,7 +85,7 @@ local function ecmp_with_failover(conn, ecmp_ifaces, wan_ifaces)
         end
     end
     -- Enable ecmp, works for both single and multiple interfaces
-    local result = conn:call("cquauth", "enable_ecmp", { interfaces = ecmp_ifaces })
+    local result = conn:call("cquauth", "enable_ecmp", { interfaces = ecmp_ifaces, table = ECMP_TABLE })
     if result and result.success then
         log("ECMP 已启用")
     else

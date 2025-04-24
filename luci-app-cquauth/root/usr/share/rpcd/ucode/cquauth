@@ -69,6 +69,15 @@ function url_encode(str) {
     return res;
 }
 
+function get_gw(ifname) {
+    // ip -j route show default | jq -r '[.[] | select(.dev == "eth1")][0].gateway'
+    if (!ifname) {
+        return 'N/A';
+    }
+    const cmd = sprintf('ip -j route show default | jq -r \'[.[] | select(.dev == %s)][0].gateway\'', ifname)
+    return exec(cmd);
+}
+
 function get_ip(ifname) {
     const cmd = sprintf('curl --user-agent "" --connect-timeout 5 10.254.7.4/a79.htm --interface %s 2>/dev/null', ifname);
     const result = trim_html(safe_exec(cmd));
@@ -121,19 +130,19 @@ const methods = {
         }
     },
     enable_ecmp: {
-        args: { interfaces: [] },
+        args: { interfaces: [], table: "main" },
         call: function(req) {
             const ifaces = req.args?.interfaces ?? [];
             if (length(ifaces) == 0) {
                 log('Invalid interface name');
                 return { success: false, message: 'Invalid interface name' };
             }
-            const nexthop_str = "nexthop dev %s weight 1";
-            const nexthop_strs = join(' ',map(ifaces, ifname => sprintf(nexthop_str, ifname)));
-            const cmd = sprintf('ip route replace default scope global %s', nexthop_strs);
+            const nexthop_str = "nexthop via %s dev %s weight 1";
+            const nexthop_strs = join(' ',map(ifaces, ifname => sprintf(nexthop_str, get_gw(ifname), ifname)));
+            const cmd = sprintf('ip route table %s replace default %s', req.args?.table ?? "main", nexthop_strs);
             const result = exec(cmd);
             log(`Enable ecmp: ${result} ${cmd}`);
-            return { success: result == '', message: 'Enable ecmp' };
+            return { success: result == '', message: 'Enable ecmp routing' };
         }
     },
     login: {
